@@ -3,6 +3,50 @@
 ## [Unreleased]
 - Working on: Unit tests and corpus management
 
+## [0.4.0] - 2024-09-19
+### Added
+- **Interactive Streamlit Browser Application**: Complete web-based interface for CDE matching
+  - Real-time data processing with progress tracking
+  - File selection from local `data/clinical_data/` directory
+  - Interactive matcher configuration with live parameter tuning
+  - Multiple result views: Overview, Exact, Fuzzy, Semantic matches
+- **Manual Match Selection System**: User-driven curation workflows
+  - Interactive data editor with checkbox selection for each match
+  - Bulk selection operations: Select All, Deselect All, High Confidence matches
+  - Session state persistence across navigation tabs
+  - Real-time selection count badges and metrics
+- **Manual Report Builder**: Comprehensive report generation and management
+  - Conflict detection for variables mapped to multiple CDEs
+  - Interactive conflict resolution with Keep/Remove options
+  - Editable final report table with validation
+  - 2-column CSV download (CDE, Variable) with timestamped filenames
+- **Cached Results Support**: Load and browse previously processed results
+  - Automatic detection of JSON files in `output/` directory
+  - Backward compatibility with older result formats
+  - File preview and metadata display
+  - Seamless integration with manual selection workflows
+- **Enhanced Session Management**: Robust state persistence and navigation
+  - Multi-page navigation with selection count tracking
+  - Configuration bridging between UI and pipeline
+  - Stable radio button navigation (fixed label issues)
+
+### Enhanced
+- **User Experience**: Improved visual design and interaction patterns
+  - Fixed white-on-white text visibility issues
+  - Replaced deprecated `use_container_width` with `width='stretch'`
+  - Clear visual feedback for selection states and processing status
+  - Intuitive navigation flow with contextual help messages
+- **Data Flow Architecture**: Streamlined processing pipeline integration
+  - Direct integration between Streamlit UI and CDEMatcherPipeline
+  - Real-time configuration passing from UI to matching algorithms
+  - Temporary file management for processing workflows
+
+### Performance
+- **Session State Optimization**: Efficient selection tracking and updates
+  - Immediate state updates on user interactions
+  - Optimized conflict detection and resolution algorithms
+  - Memory-efficient storage of match metadata and selections
+
 ## [0.3.0] - 2024-01-20
 ### Added
 - **Modular Architecture**: Complete rewrite with strategy and factory patterns

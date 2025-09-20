@@ -195,4 +195,120 @@ pipeline.configure_matchers(
 )
 ```
 
-This architecture provides a solid foundation for CDE matching while maintaining flexibility for future enhancements and domain-specific customizations.
+## User Interface Layer
+
+### Streamlit Browser Application
+The `cde_browser_app.py` provides a complete web-based interface for CDE matching:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    CDE Matcher Browser                      │
+├─────────────────────────────────────────────────────────────┤
+│ Sidebar:                    │ Main Content:                 │
+│ ┌─────────────────────────┐ │ ┌───────────────────────────┐ │
+│ │ Data Source Selection   │ │ │ File Selection            │ │
+│ │ ├─ New Processing       │ │ │ ├─ Clinical Data Files    │ │
+│ │ └─ Cached Results       │ │ │ └─ DigiPath CDEs (auto)   │ │
+│ │                         │ │ └───────────────────────────┘ │
+│ │ Matcher Configuration   │ │ ┌───────────────────────────┐ │
+│ │ ├─ Exact Settings       │ │ │ Match Results             │ │
+│ │ ├─ Fuzzy Parameters     │ │ │ ├─ Overview Dashboard     │ │
+│ │ └─ Semantic Options     │ │ │ ├─ Interactive Selection  │ │
+│ │                         │ │ │ └─ Manual Report Builder  │ │
+│ │ Navigation (5 selected) │ │ └───────────────────────────┘ │
+│ │ ├─ Overview             │ │                               │
+│ │ ├─ Exact Matches        │ │                               │
+│ │ ├─ Fuzzy Matches        │ │                               │
+│ │ ├─ Semantic Matches     │ │                               │
+│ │ ├─ Manual Report (5)    │ │                               │
+│ │ └─ Export Options       │ │                               │
+│ └─────────────────────────┘ │                               │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Interactive Match Selection
+
+#### Data Editor Interface
+Each match type (Exact, Fuzzy, Semantic) displays results in an interactive `st.data_editor`:
+
+```python
+# Interactive match selection with real-time updates
+edited_df = st.data_editor(
+    df[['Select', 'Variable', 'DigiPath CDE', 'Confidence', 'Match Type']],
+    column_config={
+        "Select": st.column_config.CheckboxColumn("Select")
+    }
+)
+```
+
+#### Selection Management
+- **Individual Selection**: Checkbox per match
+- **Bulk Operations**: Select All, Deselect All, High Confidence
+- **Persistence**: Session state maintains selections across navigation
+- **Real-time Feedback**: Selection count badges and metrics
+
+### Manual Report Builder
+
+#### Conflict Resolution System
+```python
+# Detect conflicts (same variable → multiple CDEs)
+variable_mappings = {}
+conflicts = []
+for match in selected_matches:
+    var, cde = match['variable'], match['cde']
+    if var in variable_mappings and variable_mappings[var] != cde:
+        conflicts.append(var)
+```
+
+#### Report Generation Pipeline
+```
+User Selections → Conflict Detection → Resolution Interface → Final Report → CSV Download
+```
+
+### Session State Architecture
+
+#### Data Persistence
+```python
+st.session_state = {
+    'results': {...},                    # Pipeline results
+    'selected_matches': [...],           # User selections
+    'manual_report': {...},             # Report metadata
+    'processing_complete': bool,         # Navigation state
+    'matcher_config': {...}             # Algorithm parameters
+}
+```
+
+#### State Management Pattern
+- **Initialization**: Check and create missing state variables
+- **Updates**: Immediate updates on user interactions
+- **Validation**: Ensure state consistency across navigation
+- **Cleanup**: Reset on new data processing
+
+### Integration with Pipeline
+
+#### Data Flow
+```
+Clinical Data Files → Streamlit Interface → CDEMatcherPipeline → Results → Interactive Selection → Manual Report
+```
+
+#### Configuration Bridging
+```python
+# UI configuration passed to pipeline
+results = pipeline.run_pipeline(
+    source_path=variables_file,
+    target_path=digipath_cdes,
+    exact_config=st.session_state.matcher_config['exact'],
+    fuzzy_config=st.session_state.matcher_config['fuzzy'],
+    semantic_config=st.session_state.matcher_config['semantic']
+)
+```
+
+## Future Architecture Enhancements
+
+### Planned Extensions
+- **Corpus Integration**: Historical match lookup and storage
+- **Batch Processing**: Multiple file upload and processing
+- **Advanced Analytics**: Match quality insights and recommendations
+- **API Layer**: REST endpoints for external integrations
+
+This architecture provides a solid foundation for CDE matching while maintaining flexibility for future enhancements and domain-specific customizations. The addition of the interactive user interface enables practical deployment and manual curation workflows.

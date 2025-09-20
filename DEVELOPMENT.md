@@ -62,15 +62,16 @@ values. Include type inference and basic statistics."
 Focus: One format at a time
 ```
 
-### 🚧 Phase 5: Streamlit Interface (FUTURE)
-**Status**: Legacy app exists in scripts/, needs integration with new architecture
-```markdown
-Prompt: "Create the match validation interface with side-by-side comparison.
-Show CDE details on left, input variable on right. Include accept/reject buttons
-that update the corpus."
-
-Focus: Core workflow first
-```
+### ✅ Phase 5: Streamlit Interface (COMPLETED)
+**Status**: Fully integrated with manual match selection
+**Implementation**: `cde_browser_app.py`
+- ✅ **File Selection Interface**: Load clinical data from `data/clinical_data/`
+- ✅ **Real-time Processing**: Interactive configuration and immediate results
+- ✅ **Manual Match Selection**: Interactive data editor with checkboxes for each match
+- ✅ **Conflict Resolution**: Detect and resolve variables mapped to multiple CDEs
+- ✅ **Report Generation**: 2-column CSV download (CDE, Variable)
+- ✅ **Session State Management**: Persistent selections across navigation
+- ✅ **Multi-view Interface**: Overview, match details, and manual report builder
 
 ## Current Implementation Status
 
@@ -126,13 +127,29 @@ Working with SEA-AD Cohort Metadata (66 fields) vs DigiPath CDEs (332 items):
 - `exact_only: bool` - Exact semantic matches only (default: False)
 - `custom_mappings: Dict` - Additional concept mappings (default: None)
 
+#### Streamlit Browser App
+The `cde_browser_app.py` provides a complete development interface:
+
+```python
+# Launch the application
+streamlit run cde_browser_app.py
+```
+
+Features:
+- **Data Source Selection**: Choose between new processing or cached results
+- **Interactive Configuration**: Real-time matcher parameter tuning
+- **Manual Curation**: Select matches using checkboxes and bulk operations
+- **Conflict Management**: Resolve variables mapped to multiple CDEs
+- **Report Export**: Download 2-column CSV reports
+- **Navigation**: Sidebar with selection count badges
+
 ### 🎯 Next Development Priorities
 
 1. **Unit Tests** - Comprehensive test suite for all matchers
 2. **Corpus Manager** - JSON-based persistence with file locking
 3. **Data Adapters** - Formalized CSV and other format handlers
-4. **Modern UI** - Streamlit integration with new architecture
-5. **Performance** - Optimization for large datasets
+4. **Performance** - Optimization for large datasets
+5. **Advanced Analytics** - Match quality insights and recommendations
 
 ## Working with Claude Code
 
@@ -362,10 +379,11 @@ class CorpusRepository:
    - Confidence-based auto-accept
    - Batch processing capabilities
 
-### Medium Term (Phase 5)
-5. **Modern UI**: Streamlit integration with new architecture
-   - Match validation interface
-   - Side-by-side comparison views
+### Medium Term (Phase 6)
+5. **Advanced UI Features**: Enhanced Streamlit functionality
+   - Batch file processing
+   - Advanced filtering and search
+   - Match validation workflows
    - Corpus management interface
 
 6. **Performance Optimization**
