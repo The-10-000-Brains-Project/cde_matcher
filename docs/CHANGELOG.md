@@ -3,6 +3,61 @@
 ## [Unreleased]
 - Working on: Unit tests and corpus management
 
+## [0.5.0] - 2024-09-23
+### Major Refactor: Modular Component Architecture
+- **BREAKING**: Complete UI refactor from monolithic to modular design
+- **BREAKING**: File locations changed: `cde_browser_app.py` → `ui/browser_app.py`, `cde_matcher_pipeline.py` → `cde_matcher/core/pipeline.py`
+- **BREAKING**: Output directory moved from `output/` → `data/output/`
+
+### Added
+- **Modular UI Components**: Four specialized, reusable components
+  - `DatasetSelector`: File selection, preview, and extraction method configuration
+  - `MatcherConfig`: Interactive algorithm parameter tuning with real-time examples
+  - `ResultsViewer`: Overview dashboard, detailed views, and advanced analytics
+  - `ReportBuilder`: Manual curation, conflict resolution, and export functionality
+- **Enhanced User Experience**: Improved interaction flows and validation
+  - No default dataset selection - users must actively choose files
+  - Proper confirmation dialogs for dataset changes with session state management
+  - Streamlined interface without redundant extraction preview
+- **Smart Caching System**: Configuration-based file management
+  - MD5 hash-based file naming prevents duplicate processing
+  - Automatic detection and reuse of existing results with identical configurations
+  - Cached results saved to organized `data/output/` directory
+- **Flexible Data Handling**: Enhanced support for multiple clinical data formats
+  - Column headers extraction for raw clinical data
+  - Data dictionary extraction from specific columns (variable_name, Field, etc.)
+  - Dataset structure analysis with extraction method suggestions
+- **Advanced Analytics**: Enhanced results visualization and insights
+  - Confidence distribution charts with median indicators
+  - Algorithm performance comparison with dual-axis plots
+  - Coverage analysis and match quality breakdowns
+
+### Enhanced
+- **Repository Organization**: Clean, professional structure following Python packaging conventions
+  - Proper package structure with `__init__.py` files and exports
+  - Comprehensive `.gitignore` for Python development
+  - All business logic separated from UI components
+- **Code Quality**: Modernized Streamlit usage and error handling
+  - Fixed all deprecated `use_container_width` → `width='stretch'` warnings
+  - Improved error handling with informative user messages
+  - Better session state management and component isolation
+- **Documentation**: Updated all documentation to reflect modular architecture
+  - README.md updated with new launch commands and structure
+  - DEVELOPMENT.md enhanced with refactor details and component descriptions
+  - Architecture documentation updated with component responsibilities
+
+### Technical Improvements
+- **Maintainability**: 1,500+ line monolithic app reduced to 400-line main app + 4 focused components
+- **Testability**: Components can now be tested and developed independently
+- **Reusability**: UI components can be used in other interfaces or applications
+- **Performance**: Eliminated temporary file creation through DataFrame-based processing
+
+### Changed
+- Launch command: `streamlit run cde_browser_app.py` → `streamlit run ui/browser_app.py`
+- Import paths: `from cde_matcher_pipeline import` → `from cde_matcher.core.pipeline import`
+- Output location: Results now saved to `data/output/` for better organization
+- Component access: UI components available via `from ui.components import DatasetSelector, MatcherConfig, ResultsViewer, ReportBuilder`
+
 ## [0.4.0] - 2024-09-19
 ### Added
 - **Interactive Streamlit Browser Application**: Complete web-based interface for CDE matching
@@ -21,7 +76,7 @@
   - Editable final report table with validation
   - 2-column CSV download (CDE, Variable) with timestamped filenames
 - **Cached Results Support**: Load and browse previously processed results
-  - Automatic detection of JSON files in `output/` directory
+  - Automatic detection of JSON files in `data/output/` directory
   - Backward compatibility with older result formats
   - File preview and metadata display
   - Seamless integration with manual selection workflows
