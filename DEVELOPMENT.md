@@ -18,13 +18,18 @@ This guide provides strategies for developing the CDE Matcher project, particula
 cde_matcher/
 ├── core/                 # Business logic (no UI dependencies)
 │   ├── matchers/        # Matching algorithms
-│   ├── adapters/        # Data format parsers
-│   └── corpus/          # Corpus management
+│   ├── corpus/          # Corpus management (future)
+│   └── pipeline.py      # Main processing pipeline
 ├── ui/                  # Streamlit interface
+│   ├── components/      # Modular UI components
+│   │   ├── dataset_selector.py
+│   │   ├── matcher_config.py
+│   │   ├── results_viewer.py
+│   │   └── report_builder.py
+│   └── browser_app.py   # Main application
 ├── data/                # Sample data and corpus storage
-├── config/              # Configuration management
-├── tests/               # Unit tests mirroring src structure
-└── prompts/             # Claude Code prompt templates
+├── tests/               # Unit tests (future)
+└── docs/                # Documentation
 ```
 
 ## Phase-Based Development Approach
@@ -62,19 +67,18 @@ values. Include type inference and basic statistics."
 Focus: One format at a time
 ```
 
-### ✅ Phase 5: Streamlit Interface (COMPLETED)
-**Status**: Fully integrated with manual match selection and flexible data handling
-**Implementation**: `cde_browser_app.py`
-- ✅ **File Selection Interface**: Load clinical data from `data/clinical_data/`
-- ✅ **Flexible Data Preview**: Preview file structure and suggest extraction methods
-- ✅ **Dataset Switching**: Change datasets with confirmation dialogs
-- ✅ **Real-time Processing**: Interactive configuration and immediate results
-- ✅ **Manual Match Selection**: Interactive data editor with checkboxes for each match
-- ✅ **Conflict Resolution**: Detect and resolve variables mapped to multiple CDEs
-- ✅ **Report Generation**: 2-column CSV download (CDE, Variable)
-- ✅ **Session State Management**: Persistent selections across navigation
-- ✅ **Multi-view Interface**: Overview, match details, and manual report builder
+### ✅ Phase 5: Modular Streamlit Interface (COMPLETED)
+**Status**: Fully refactored with modular components and flexible data handling
+**Implementation**: `ui/browser_app.py` with modular components
+- ✅ **Modular Architecture**: Separated UI into reusable components
+- ✅ **Dataset Selector Component**: File selection, preview, and method configuration
+- ✅ **Matcher Configuration Component**: Interactive algorithm parameter tuning
+- ✅ **Results Viewer Component**: Overview, detailed views, and analytics
+- ✅ **Report Builder Component**: Manual curation and conflict resolution
+- ✅ **Flexible Data Handling**: Support for multiple clinical data formats
 - ✅ **Smart Caching**: Configuration-based file management with hash naming
+- ✅ **Session State Management**: Persistent selections across navigation
+- ✅ **Interactive Selection**: Real-time match selection with bulk operations
 
 ## Current Implementation Status
 
@@ -96,10 +100,10 @@ results = fuzzy.match("age_death", ["age_at_death", "death_age"])
 ```
 
 #### Pipeline
-The `CDEMatcherPipeline` in `cde_matcher_pipeline.py` provides end-to-end functionality with flexible data handling:
+The `CDEMatcherPipeline` in `cde_matcher/core/pipeline.py` provides end-to-end functionality with flexible data handling:
 
 ```python
-from cde_matcher_pipeline import CDEMatcherPipeline
+from cde_matcher.core.pipeline import CDEMatcherPipeline
 
 pipeline = CDEMatcherPipeline()
 
@@ -149,12 +153,12 @@ Working with SEA-AD Cohort Metadata (66 fields) vs DigiPath CDEs (332 items):
 - `exact_only: bool` - Exact semantic matches only (default: False)
 - `custom_mappings: Dict` - Additional concept mappings (default: None)
 
-#### Streamlit Browser App
-The `cde_browser_app.py` provides a complete development interface:
+#### Modular Streamlit Browser App
+The `ui/browser_app.py` provides a complete modular interface with reusable components:
 
 ```python
 # Launch the application
-streamlit run cde_browser_app.py
+streamlit run ui/browser_app.py
 ```
 
 Features:

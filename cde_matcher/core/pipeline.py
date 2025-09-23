@@ -336,7 +336,7 @@ class CDEMatcherPipeline:
 
             source_name = Path(source_path).stem
             method_suffix = source_method if source_method == "columns" else source_column
-            output_file = f"output/{source_name}_{method_suffix}_{config_hash}.json"
+            output_file = f"data/output/{source_name}_{method_suffix}_{config_hash}.json"
 
         # Ensure output directory exists
         output_dir = Path(output_file).parent
@@ -483,7 +483,7 @@ class CDEMatcherPipeline:
             )
 
             method_suffix = source_method if source_method == "columns" else source_column
-            output_file = f"output/{source_name}_{method_suffix}_{config_hash}.json"
+            output_file = f"data/output/{source_name}_{method_suffix}_{config_hash}.json"
 
         # Ensure output directory exists
         output_dir = Path(output_file).parent
