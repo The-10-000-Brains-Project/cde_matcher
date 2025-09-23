@@ -63,15 +63,18 @@ Focus: One format at a time
 ```
 
 ### ✅ Phase 5: Streamlit Interface (COMPLETED)
-**Status**: Fully integrated with manual match selection
+**Status**: Fully integrated with manual match selection and flexible data handling
 **Implementation**: `cde_browser_app.py`
 - ✅ **File Selection Interface**: Load clinical data from `data/clinical_data/`
+- ✅ **Flexible Data Preview**: Preview file structure and suggest extraction methods
+- ✅ **Dataset Switching**: Change datasets with confirmation dialogs
 - ✅ **Real-time Processing**: Interactive configuration and immediate results
 - ✅ **Manual Match Selection**: Interactive data editor with checkboxes for each match
 - ✅ **Conflict Resolution**: Detect and resolve variables mapped to multiple CDEs
 - ✅ **Report Generation**: 2-column CSV download (CDE, Variable)
 - ✅ **Session State Management**: Persistent selections across navigation
 - ✅ **Multi-view Interface**: Overview, match details, and manual report builder
+- ✅ **Smart Caching**: Configuration-based file management with hash naming
 
 ## Current Implementation Status
 
@@ -93,15 +96,34 @@ results = fuzzy.match("age_death", ["age_at_death", "death_age"])
 ```
 
 #### Pipeline
-The `CDEMatcherPipeline` in `cde_matcher_pipeline.py` provides end-to-end functionality:
+The `CDEMatcherPipeline` in `cde_matcher_pipeline.py` provides end-to-end functionality with flexible data handling:
 
 ```python
 from cde_matcher_pipeline import CDEMatcherPipeline
 
 pipeline = CDEMatcherPipeline()
+
+# Configure matchers
+pipeline.configure_matchers(
+    exact_config={"case_sensitive": False},
+    fuzzy_config={"threshold": 0.7, "algorithm": "token_sort_ratio"},
+    semantic_config={"case_sensitive": False, "exact_only": False}
+)
+
+# Flexible variable extraction
 results = pipeline.run_pipeline(
     source_path="path/to/variables.csv",
-    target_path="path/to/cdes.csv"
+    target_path="path/to/cdes.csv",
+    source_method="columns",  # or "column_values"
+    source_column=None        # or specific column name
+)
+
+# DataFrame-based processing (eliminates temp files)
+results = pipeline.run_pipeline_from_dataframes(
+    source_df=source_dataframe,
+    target_df=target_dataframe,
+    source_name="dataset_name",
+    target_name="target_name"
 )
 ```
 
@@ -137,11 +159,14 @@ streamlit run cde_browser_app.py
 
 Features:
 - **Data Source Selection**: Choose between new processing or cached results
+- **Flexible Data Handling**: Support for column headers and data dictionary formats
+- **Dataset Preview**: Preview file structure with extraction method suggestions
 - **Interactive Configuration**: Real-time matcher parameter tuning
 - **Manual Curation**: Select matches using checkboxes and bulk operations
 - **Conflict Management**: Resolve variables mapped to multiple CDEs
 - **Report Export**: Download 2-column CSV reports
 - **Navigation**: Sidebar with selection count badges
+- **Smart Caching**: Automatic file deduplication with configuration hashing
 
 ### 🎯 Next Development Priorities
 

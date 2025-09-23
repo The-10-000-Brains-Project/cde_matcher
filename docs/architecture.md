@@ -114,18 +114,24 @@ matchers = create_ensemble([
 
 ### ✅ Pipeline Implementation
 - **File**: `cde_matcher_pipeline.py`
-- **Features**: End-to-end processing with all matchers
-- **Input**: Source CSV (variables), Target CSV (CDEs)
-- **Output**: JSON file with match results and metadata
+- **Features**: End-to-end processing with all matchers and flexible data handling
+- **Input**: Source CSV (variables), Target CSV (CDEs) with flexible extraction methods
+- **Variable Extraction**: Support for "columns" (headers) and "column_values" (data dictionary format)
+- **Processing**: File-based and DataFrame-based processing modes
+- **Output**: JSON file with match results, metadata, and smart caching
 
 ## Data Flow
 
 ### Current Implementation
-1. **Data Loading**: CSV files → pandas DataFrames
-2. **Field Extraction**: Column names and CDE items → string lists
-3. **Matching**: Each matcher processes source fields against targets
-4. **Result Aggregation**: All match results collected with metadata
-5. **Output**: JSON file with categorized matches and summary statistics
+1. **Data Loading**: CSV files → pandas DataFrames (file-based or DataFrame input)
+2. **Variable Extraction**: Flexible extraction using "columns" or "column_values" methods
+   - **columns**: Extract variable names from DataFrame column headers
+   - **column_values**: Extract variables from specific column (e.g., variable_name, Field)
+3. **Configuration Hashing**: Generate MD5 hash for smart caching and file deduplication
+4. **Cache Check**: Verify if identical configuration already processed
+5. **Matching**: Each matcher processes source fields against targets (if not cached)
+6. **Result Aggregation**: All match results collected with metadata
+7. **Output**: JSON file with configuration-based naming and categorized matches
 
 ### Future Enhanced Flow
 1. **Input Data** → **Data Adapter** (format detection & parsing)
@@ -198,7 +204,7 @@ pipeline.configure_matchers(
 ## User Interface Layer
 
 ### Streamlit Browser Application
-The `cde_browser_app.py` provides a complete web-based interface for CDE matching:
+The `cde_browser_app.py` provides a complete web-based interface for CDE matching with flexible data handling:
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -206,9 +212,11 @@ The `cde_browser_app.py` provides a complete web-based interface for CDE matchin
 ├─────────────────────────────────────────────────────────────┤
 │ Sidebar:                    │ Main Content:                 │
 │ ┌─────────────────────────┐ │ ┌───────────────────────────┐ │
-│ │ Data Source Selection   │ │ │ File Selection            │ │
-│ │ ├─ New Processing       │ │ │ ├─ Clinical Data Files    │ │
-│ │ └─ Cached Results       │ │ │ └─ DigiPath CDEs (auto)   │ │
+│ │ Data Source Selection   │ │ │ Dataset Selection         │ │
+│ │ ├─ New Processing       │ │ │ ├─ File Browser           │ │
+│ │ └─ Cached Results       │ │ │ ├─ Dataset Preview        │ │
+│ │                         │ │ │ ├─ Extraction Method      │ │
+│ │ Change Dataset Button   │ │ │ └─ Change Dataset         │ │
 │ │                         │ │ └───────────────────────────┘ │
 │ │ Matcher Configuration   │ │ ┌───────────────────────────┐ │
 │ │ ├─ Exact Settings       │ │ │ Match Results             │ │
@@ -288,18 +296,30 @@ st.session_state = {
 
 #### Data Flow
 ```
-Clinical Data Files → Streamlit Interface → CDEMatcherPipeline → Results → Interactive Selection → Manual Report
+Clinical Data Files → Dataset Preview → Method Selection → Streamlit Interface → CDEMatcherPipeline → Smart Cache Check → Results → Interactive Selection → Manual Report
 ```
 
 #### Configuration Bridging
 ```python
-# UI configuration passed to pipeline
+# UI configuration with flexible extraction passed to pipeline
 results = pipeline.run_pipeline(
     source_path=variables_file,
     target_path=digipath_cdes,
+    source_method=extraction_method,  # "columns" or "column_values"
+    source_column=column_name,        # specific column for data dictionary
     exact_config=st.session_state.matcher_config['exact'],
     fuzzy_config=st.session_state.matcher_config['fuzzy'],
     semantic_config=st.session_state.matcher_config['semantic']
+)
+
+# DataFrame-based processing (eliminates temp files)
+results = pipeline.run_pipeline_from_dataframes(
+    source_df=source_dataframe,
+    target_df=target_dataframe,
+    source_name=dataset_name,
+    target_name="digipath_cdes",
+    source_method=extraction_method,
+    source_column=column_name
 )
 ```
 
