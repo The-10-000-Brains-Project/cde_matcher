@@ -107,6 +107,50 @@ class CDEBrowserApp:
         except Exception as e:
             return None, str(e)
 
+    def analyze_dataset_structure(self, df: pd.DataFrame):
+        """Analyze dataset structure to suggest extraction methods."""
+        analysis = {
+            'shape': df.shape,
+            'columns': list(df.columns),
+            'dtypes': df.dtypes.to_dict(),
+            'null_counts': df.isnull().sum().to_dict(),
+            'unique_counts': df.nunique().to_dict(),
+            'suggested_method': 'columns',
+            'potential_variable_columns': []
+        }
+
+        # Look for columns that might contain variable names
+        for col in df.columns:
+            col_lower = col.lower()
+            unique_count = df[col].nunique()
+            total_count = len(df)
+
+            # Check for common variable name columns
+            if any(keyword in col_lower for keyword in ['variable', 'field', 'item', 'name']):
+                if unique_count > total_count * 0.5:  # More than 50% unique values
+                    analysis['potential_variable_columns'].append({
+                        'column': col,
+                        'unique_values': unique_count,
+                        'sample_values': df[col].dropna().head(5).tolist(),
+                        'reason': f'Column name suggests variables ({col_lower})'
+                    })
+
+        # If we found potential variable columns, suggest column_values method
+        if analysis['potential_variable_columns']:
+            analysis['suggested_method'] = 'column_values'
+            analysis['suggested_column'] = analysis['potential_variable_columns'][0]['column']
+
+        return analysis
+
+    def preview_variable_extraction(self, df: pd.DataFrame, method: str, column: str = None):
+        """Preview what variables would be extracted with given method."""
+        try:
+            from cde_matcher_pipeline import extract_variables_flexible
+            variables = extract_variables_flexible(df, method, column)
+            return variables[:20], len(variables), None  # Show first 20, total count, no error
+        except Exception as e:
+            return [], 0, str(e)
+
     def get_cached_outputs(self):
         """Get list of cached output JSON files."""
         output_dir = "output"
@@ -244,6 +288,58 @@ class CDEBrowserApp:
     def render_sidebar(self):
         """Render the sidebar with configuration and navigation."""
         with st.sidebar:
+            # Dataset status section
+            st.header("📁 Current Dataset")
+            if st.session_state.get('target_data') is not None:
+                selected_file = st.session_state.get('selected_file', 'Unknown')
+                method = st.session_state.get('extraction_method', 'columns')
+                total_vars = st.session_state.get('total_variables', 0)
+
+                st.success(f"**Loaded:** {selected_file}")
+                st.write(f"**Method:** {method}")
+                st.write(f"**Variables:** {total_vars}")
+
+                # Change dataset button in sidebar
+                if st.button("🔄 Change Dataset", key="sidebar_change", help="Select a different dataset"):
+                    # Check if there are results that would be lost
+                    has_results = st.session_state.get('processing_complete', False)
+                    if has_results:
+                        st.session_state.confirm_dataset_change = True
+                        st.rerun()
+                    else:
+                        # Safe to change immediately
+                        keys_to_clear = [
+                            'target_data', 'selected_file', 'extraction_method',
+                            'extraction_column', 'total_variables'
+                        ]
+                        for key in keys_to_clear:
+                            if key in st.session_state:
+                                del st.session_state[key]
+                        st.rerun()
+            else:
+                st.info("No dataset selected")
+
+            # Handle confirmation dialog from sidebar
+            if st.session_state.get('confirm_dataset_change', False):
+                st.warning("⚠️ **Warning:** This will clear all results!")
+                col_a, col_b = st.columns(2)
+                with col_a:
+                    if st.button("✅ Yes", key="sidebar_confirm"):
+                        keys_to_clear = [
+                            'target_data', 'selected_file', 'extraction_method',
+                            'extraction_column', 'total_variables', 'results',
+                            'processing_complete', 'selected_matches', 'confirm_dataset_change'
+                        ]
+                        for key in keys_to_clear:
+                            if key in st.session_state:
+                                del st.session_state[key]
+                        st.rerun()
+                with col_b:
+                    if st.button("❌ No", key="sidebar_cancel"):
+                        del st.session_state.confirm_dataset_change
+                        st.rerun()
+
+            st.divider()
             st.header("⚙️ Configuration")
 
             # Matcher configuration
@@ -259,7 +355,7 @@ class CDEBrowserApp:
                 st.session_state.matcher_config['exact']['case_sensitive'] = case_sensitive
 
             # Fuzzy matcher config
-            with st.expander("🔍 Fuzzy Matcher", expanded=True):
+            with st.expander("🔍 Fuzzy Matcher", expanded=False):
                 threshold = st.slider(
                     "Similarity Threshold",
                     min_value=0.0, max_value=1.0,
@@ -365,8 +461,8 @@ class CDEBrowserApp:
         # Select clinical data file
         st.subheader("📁 Select Clinical Dataset")
         st.markdown("""
-        Choose a clinical dataset from the available files. The column names will be used
-        as variables to match against DigiPath CDEs.
+        Choose a clinical dataset from the available files. We'll analyze the structure
+        and help you choose how to extract variables for matching.
         """)
 
         # Get available clinical data files
@@ -378,69 +474,186 @@ class CDEBrowserApp:
             return
 
         # File selection
-        col1, col2 = st.columns([1, 1])
+        selected_file = st.selectbox(
+            "Available Clinical Data Files:",
+            available_files,
+            index=0,
+            help="Select a CSV file from the clinical data directory"
+        )
 
+        # Load and preview dataset
+        with st.spinner(f"Analyzing {selected_file}..."):
+            df, error = self.load_clinical_data_file(selected_file)
+
+            if error:
+                st.error(f"Error loading {selected_file}: {error}")
+                return
+
+            # Analyze dataset structure
+            analysis = self.analyze_dataset_structure(df)
+
+        # Dataset preview
+        st.subheader("📊 Dataset Preview")
+
+        col1, col2, col3, col4 = st.columns(4)
         with col1:
-            selected_file = st.selectbox(
-                "Available Clinical Data Files:",
-                available_files,
-                index=0,
-                help="Select a CSV file from the clinical data directory"
+            st.metric("Rows", f"{analysis['shape'][0]:,}")
+        with col2:
+            st.metric("Columns", analysis['shape'][1])
+        with col3:
+            st.metric("Total Cells", f"{analysis['shape'][0] * analysis['shape'][1]:,}")
+        with col4:
+            file_path = os.path.join("data/clinical_data", selected_file)
+            file_size_mb = os.stat(file_path).st_size / (1024 * 1024)
+            st.metric("File Size", f"{file_size_mb:.1f} MB")
+
+        # Show sample data
+        st.write("**Sample Data (first 5 rows):**")
+        st.dataframe(df.head(), width='stretch')
+
+        st.divider()
+
+        # Variable extraction method selection
+        st.subheader("🔧 Variable Extraction Method")
+
+        # Show suggestion based on analysis
+        if analysis['suggested_method'] == 'column_values':
+            st.info(f"💡 **Suggested Method**: Use specific column (detected potential variable columns)")
+        else:
+            st.info(f"💡 **Suggested Method**: Use column headers (typical for raw clinical data)")
+
+        # Method selection
+        extraction_method = st.radio(
+            "How should we extract variables from this dataset?",
+            options=["columns", "column_values"],
+            format_func=lambda x: {
+                "columns": "📋 Use Column Headers",
+                "column_values": "📝 Use Specific Column"
+            }[x],
+            index=0 if analysis['suggested_method'] == 'columns' else 1,
+            help="Choose how to identify the variables to match against CDEs"
+        )
+
+        # Column selection (if using column_values method)
+        selected_column = None
+        if extraction_method == "column_values":
+            if analysis['potential_variable_columns']:
+                st.write("**Detected potential variable columns:**")
+                for pot_col in analysis['potential_variable_columns']:
+                    st.write(f"• **{pot_col['column']}**: {pot_col['unique_values']} unique values")
+                    st.write(f"  Sample: {', '.join(map(str, pot_col['sample_values'][:3]))}...")
+
+            selected_column = st.selectbox(
+                "Select column containing variable names:",
+                options=df.columns.tolist(),
+                index=df.columns.tolist().index(analysis.get('suggested_column', df.columns[0]))
+                      if analysis.get('suggested_column') in df.columns else 0,
+                help="Choose the column that contains the variable names to match"
             )
 
-            # Load button
-            if st.button("📂 Load Selected Dataset", type="primary"):
-                with st.spinner(f"Loading {selected_file}..."):
-                    df, error = self.load_clinical_data_file(selected_file)
+        # Preview extraction results
+        st.subheader("🔍 Variable Extraction Preview")
+        preview_vars, total_vars, preview_error = self.preview_variable_extraction(
+            df, extraction_method, selected_column
+        )
 
-                    if error:
-                        st.error(f"Error loading {selected_file}: {error}")
-                    else:
+        if preview_error:
+            st.error(f"Extraction error: {preview_error}")
+        else:
+            col1, col2 = st.columns([2, 1])
+
+            with col1:
+                st.write(f"**{total_vars} variables will be extracted:**")
+                if preview_vars:
+                    # Show first 10 variables in a nice format
+                    for i, var in enumerate(preview_vars[:10], 1):
+                        st.write(f"{i}. {var}")
+                    if total_vars > 10:
+                        st.write(f"... and {total_vars - 10} more")
+
+            with col2:
+                if total_vars > 0:
+                    # Ready to process button
+                    if st.button("🚀 Process with These Variables", type="primary"):
+                        # Store the dataset and extraction settings
                         st.session_state.target_data = df
                         st.session_state.selected_file = selected_file
-                        st.success(f"✅ Loaded {selected_file}")
+                        st.session_state.extraction_method = extraction_method
+                        st.session_state.extraction_column = selected_column
+                        st.session_state.total_variables = total_vars
+                        st.success(f"✅ Ready to process {total_vars} variables!")
                         st.rerun()
-
-        with col2:
-            st.subheader("📋 File Information")
-            if available_files:
-                # Show file info for selected file
-                try:
-                    file_path = os.path.join("data/clinical_data", selected_file)
-                    file_stats = os.stat(file_path)
-                    file_size_mb = file_stats.st_size / (1024 * 1024)
-
-                    st.write(f"**Selected:** {selected_file}")
-                    st.write(f"**Size:** {file_size_mb:.1f} MB")
-
-                    # Quick peek at the file without loading it fully
-                    try:
-                        peek_df = pd.read_csv(file_path, nrows=0)  # Just get columns
-                        st.write(f"**Columns:** {peek_df.shape[1]}")
-                        st.write(f"**Sample columns:** {list(peek_df.columns[:5])}")
-                        if len(peek_df.columns) > 5:
-                            st.write(f"... and {len(peek_df.columns) - 5} more")
-                    except:
-                        st.write("**Preview:** Unable to preview file")
-
-                except Exception as e:
-                    st.write(f"**Error:** Cannot read file info - {e}")
+                else:
+                    st.warning("No variables found with current settings")
 
         # Show loaded data if available
         if st.session_state.target_data is not None:
             st.divider()
-            st.subheader("📊 Loaded Dataset Preview")
+
+            # Header with change dataset option
+            col1, col2 = st.columns([3, 1])
+            with col1:
+                st.subheader("📊 Loaded Dataset Preview")
+            with col2:
+                # Check if there are results that would be lost
+                has_results = st.session_state.get('processing_complete', False)
+
+                if has_results:
+                    # Show confirmation for users with existing results
+                    if st.button("🔄 Change Dataset", type="secondary", help="⚠️ This will clear current results"):
+                        if 'confirm_dataset_change' not in st.session_state:
+                            st.session_state.confirm_dataset_change = True
+                            st.rerun()
+
+                    # Show confirmation dialog
+                    if st.session_state.get('confirm_dataset_change', False):
+                        st.warning("⚠️ **Warning:** Changing datasets will clear all current results and selections.")
+                        col_a, col_b = st.columns(2)
+                        with col_a:
+                            if st.button("✅ Yes, Change Dataset", type="primary"):
+                                # Clear dataset-related session state
+                                keys_to_clear = [
+                                    'target_data', 'selected_file', 'extraction_method',
+                                    'extraction_column', 'total_variables', 'results',
+                                    'processing_complete', 'selected_matches', 'confirm_dataset_change'
+                                ]
+                                for key in keys_to_clear:
+                                    if key in st.session_state:
+                                        del st.session_state[key]
+                                st.success("Dataset cleared! Select a new dataset below.")
+                                st.rerun()
+                        with col_b:
+                            if st.button("❌ Cancel"):
+                                del st.session_state.confirm_dataset_change
+                                st.rerun()
+                else:
+                    # No results to lose, safe to change
+                    if st.button("🔄 Change Dataset", type="secondary", help="Select a different dataset"):
+                        keys_to_clear = [
+                            'target_data', 'selected_file', 'extraction_method',
+                            'extraction_column', 'total_variables'
+                        ]
+                        for key in keys_to_clear:
+                            if key in st.session_state:
+                                del st.session_state[key]
+                        st.rerun()
 
             num_variables = st.session_state.target_data.shape[1]
             num_rows = st.session_state.target_data.shape[0]
 
-            col1, col2, col3 = st.columns(3)
+            col1, col2, col3, col4 = st.columns(4)
             with col1:
                 st.metric("📁 File", st.session_state.get('selected_file', 'Unknown'))
             with col2:
                 st.metric("📊 Rows", f"{num_rows:,}")
             with col3:
-                st.metric("📝 Variables", num_variables)
+                total_vars = st.session_state.get('total_variables', num_variables)
+                st.metric("📝 Variables", total_vars)
+            with col4:
+                method = st.session_state.get('extraction_method', 'columns')
+                column = st.session_state.get('extraction_column')
+                method_display = "Columns" if method == "columns" else f"Column: {column}"
+                st.metric("🔧 Method", method_display)
 
             # Data preview tabs
             tab1, tab2 = st.tabs(["📊 Data Preview", "📝 Variables List"])
@@ -511,31 +724,25 @@ class CDEBrowserApp:
                     semantic_config=st.session_state.matcher_config['semantic']
                 )
 
-                # Save temporary files
-                # NOTE: Pipeline expects source=variables, target=CDEs
-                # But we have DigiPath as source and variables as target
-                # So we swap them for the pipeline call
-                status_text.text("Preparing data...")
-                progress_bar.progress(40)
-
-                # Variables to match (from uploaded file) -> pipeline source
-                with tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False) as f:
-                    st.session_state.target_data.to_csv(f.name, index=False)
-                    pipeline_source_path = f.name
-
-                # DigiPath CDEs -> pipeline target
-                with tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False) as f:
-                    st.session_state.source_data.to_csv(f.name, index=False)  # DigiPath data
-                    pipeline_target_path = f.name
-
-                # Run pipeline
+                # Run pipeline directly with DataFrames (no temp files!)
                 status_text.text("Running matching algorithms...")
                 progress_bar.progress(60)
 
-                results = self.pipeline.run_pipeline(
-                    source_path=pipeline_source_path,  # Variables from uploaded file
-                    target_path=pipeline_target_path,  # DigiPath CDEs
-                    output_file="temp_results.json"
+                # Get extraction settings from session state
+                source_method = st.session_state.get('extraction_method', 'columns')
+                source_column = st.session_state.get('extraction_column', None)
+                source_file = st.session_state.get('selected_file', 'clinical_data')
+
+                # Use DataFrame-based pipeline (no file I/O needed)
+                results = self.pipeline.run_pipeline_from_dataframes(
+                    source_df=st.session_state.target_data,  # Clinical data
+                    target_df=st.session_state.source_data,  # DigiPath CDEs
+                    source_name=Path(source_file).stem,  # Clean filename for output
+                    target_name="digipath_cdes",
+                    source_method=source_method,
+                    source_column=source_column,
+                    target_method="column_values",
+                    target_column="Item"
                 )
 
                 progress_bar.progress(80)

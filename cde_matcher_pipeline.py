@@ -8,13 +8,88 @@ with the new BaseMatcher interface and implementations.
 
 import pandas as pd
 import json
+import os
+import datetime
+import hashlib
 from pathlib import Path
-from typing import List, Dict, Any, Tuple
+from typing import List, Dict, Any, Tuple, Optional
 from dataclasses import asdict
 
 from cde_matcher.core.matchers import (
     create_matcher, create_ensemble, MatchResult
 )
+
+
+def extract_variables_flexible(df: pd.DataFrame,
+                             method: str = "columns",
+                             column_name: Optional[str] = None) -> List[str]:
+    """
+    Flexible variable extraction that works with different data formats.
+
+    Args:
+        df: DataFrame to extract variables from
+        method: "columns" to use column headers, "column_values" to use specific column
+        column_name: Name of column to extract from (required if method="column_values")
+
+    Returns:
+        List of variable names
+
+    Raises:
+        ValueError: If method is invalid or required parameters are missing
+    """
+    if method == "columns":
+        # Extract from column headers (for raw clinical data)
+        variables = df.columns.tolist()
+    elif method == "column_values":
+        if column_name is None:
+            raise ValueError("column_name is required when method='column_values'")
+        if column_name not in df.columns:
+            raise ValueError(f"Column '{column_name}' not found in DataFrame")
+
+        # Extract from values in specified column (for data dictionaries)
+        variables = df[column_name].dropna().astype(str).unique().tolist()
+    else:
+        raise ValueError(f"Invalid method '{method}'. Use 'columns' or 'column_values'")
+
+    # Clean and validate variables
+    cleaned_variables = []
+    for var in variables:
+        var_str = str(var).strip()
+        if var_str and not var_str.startswith('Unnamed:'):
+            cleaned_variables.append(var_str)
+
+    return cleaned_variables
+
+
+def generate_config_hash(exact_config: Dict[str, Any],
+                        fuzzy_config: Dict[str, Any],
+                        semantic_config: Dict[str, Any],
+                        source_method: str,
+                        source_column: Optional[str],
+                        target_method: str,
+                        target_column: str) -> str:
+    """
+    Generate a short hash based on configuration parameters.
+
+    This ensures that identical configurations produce the same filename,
+    while different configurations get different files.
+    """
+    config_data = {
+        'exact': exact_config,
+        'fuzzy': fuzzy_config,
+        'semantic': semantic_config,
+        'source_method': source_method,
+        'source_column': source_column,
+        'target_method': target_method,
+        'target_column': target_column
+    }
+
+    # Create a stable string representation
+    config_str = json.dumps(config_data, sort_keys=True)
+
+    # Generate short hash
+    hash_obj = hashlib.md5(config_str.encode())
+    return hash_obj.hexdigest()[:8]  # Use first 8 characters
 
 
 class CDEMatcherPipeline:
@@ -73,21 +148,36 @@ class CDEMatcherPipeline:
 
         return source_df, target_df
 
-    def extract_fields(self, source_df: pd.DataFrame, target_df: pd.DataFrame) -> Tuple[List[str], List[str]]:
+    def extract_fields(self,
+                      source_df: pd.DataFrame,
+                      target_df: pd.DataFrame,
+                      source_method: str = "columns",
+                      source_column: Optional[str] = None,
+                      target_method: str = "column_values",
+                      target_column: str = "Item") -> Tuple[List[str], List[str]]:
         """
-        Extract field names from both datasets.
+        Extract field names from both datasets using flexible methods.
 
         Args:
             source_df: Source dataframe containing variable names
             target_df: Target dataframe containing CDE items
+            source_method: How to extract from source ("columns" or "column_values")
+            source_column: Column name for source extraction (if method="column_values")
+            target_method: How to extract from target ("columns" or "column_values")
+            target_column: Column name for target extraction (default: "Item")
 
         Returns:
             Tuple of (source_fields, target_items)
         """
-        source_fields = [col.strip() for col in source_df.columns]
-        target_items = target_df['Item'].dropna().str.strip().unique().tolist()
+        # Extract source variables
+        source_fields = extract_variables_flexible(source_df, source_method, source_column)
 
+        # Extract target variables (usually DigiPath CDEs from "Item" column)
+        target_items = extract_variables_flexible(target_df, target_method, target_column)
+
+        print(f"Source extraction: {source_method}" + (f" (column: {source_column})" if source_column else ""))
         print(f"Source fields: {len(source_fields)}")
+        print(f"Target extraction: {target_method} (column: {target_column})")
         print(f"Target items: {len(target_items)}")
 
         return source_fields, target_items
@@ -187,16 +277,24 @@ class CDEMatcherPipeline:
         return all_matches
 
     def run_pipeline(self,
-                    source_path: str = "data/cdes/SEA-AD_Cohort_Metadata.csv",
+                    source_path: str = "data/clinical_data/SEA-AD_Cohort_Metadata.csv",
                     target_path: str = "data/cdes/digipath_cdes.csv",
-                    output_file: str = "cde_matches_modular.json") -> Dict[str, Any]:
+                    output_file: Optional[str] = None,
+                    source_method: str = "columns",
+                    source_column: Optional[str] = None,
+                    target_method: str = "column_values",
+                    target_column: str = "Item") -> Dict[str, Any]:
         """
-        Run the complete matching pipeline.
+        Run the complete matching pipeline with flexible variable extraction.
 
         Args:
             source_path: Path to source CSV file containing variable names
             target_path: Path to target CSV file containing CDE items
-            output_file: Output JSON file path
+            output_file: Output JSON file path (auto-generated if None)
+            source_method: How to extract variables from source ("columns" or "column_values")
+            source_column: Column name for source extraction (if method="column_values")
+            target_method: How to extract variables from target ("columns" or "column_values")
+            target_column: Column name for target extraction (default: "Item")
 
         Returns:
             Dictionary containing all match results
@@ -211,15 +309,61 @@ class CDEMatcherPipeline:
         # Load data
         source_df, target_df = self.load_data(source_path, target_path)
 
-        # Extract fields
-        source_fields, target_items = self.extract_fields(source_df, target_df)
+        # Extract fields using flexible methods
+        source_fields, target_items = self.extract_fields(
+            source_df, target_df,
+            source_method, source_column,
+            target_method, target_column
+        )
 
         # Run matching algorithms
         exact_matches = self.run_exact_matching(source_fields, target_items)
         fuzzy_matches = self.run_fuzzy_matching(source_fields, target_items)
         semantic_matches = self.run_semantic_matching(source_fields, target_items)
 
-        # Compile results
+        # Generate output filename with smart caching
+        if output_file is None:
+            # Generate config hash for intelligent file naming
+            config_hash = generate_config_hash(
+                self.exact_matcher.get_configuration(),
+                self.fuzzy_matcher.get_configuration(),
+                self.semantic_matcher.get_configuration(),
+                source_method,
+                source_column,
+                target_method,
+                target_column
+            )
+
+            source_name = Path(source_path).stem
+            method_suffix = source_method if source_method == "columns" else source_column
+            output_file = f"output/{source_name}_{method_suffix}_{config_hash}.json"
+
+        # Ensure output directory exists
+        output_dir = Path(output_file).parent
+        output_dir.mkdir(exist_ok=True)
+
+        # Check if file already exists with same configuration
+        if os.path.exists(output_file):
+            print(f"📋 Found existing results with same configuration: {output_file}")
+            print("🔄 Loading cached results instead of reprocessing...")
+
+            try:
+                with open(output_file, 'r') as f:
+                    cached_results = json.load(f)
+
+                # Verify the cached results have the expected structure
+                if all(key in cached_results for key in ['exact_matches', 'fuzzy_matches', 'semantic_matches', 'summary']):
+                    self.results = cached_results
+                    print("✅ Successfully loaded cached results!")
+                    return cached_results
+                else:
+                    print("⚠️ Cached file format invalid, reprocessing...")
+            except (json.JSONDecodeError, IOError) as e:
+                print(f"⚠️ Error reading cached file, reprocessing: {e}")
+
+        print(f"🆕 Processing new configuration, will save to: {output_file}")
+
+        # Compile results with enhanced metadata
         results = {
             'exact_matches': exact_matches,
             'fuzzy_matches': fuzzy_matches,
@@ -229,7 +373,24 @@ class CDEMatcherPipeline:
                 'total_fuzzy_matches': len(fuzzy_matches),
                 'total_semantic_matches': len(semantic_matches),
                 'unique_source_fields': len(source_fields),
-                'unique_target_items': len(target_items)
+                'unique_target_items': len(target_items),
+                'processing_timestamp': datetime.datetime.now().isoformat()
+            },
+            'source_info': {
+                'file_path': source_path,
+                'file_name': Path(source_path).name,
+                'extraction_method': source_method,
+                'extraction_column': source_column,
+                'variables_extracted': len(source_fields),
+                'dataset_shape': list(source_df.shape)
+            },
+            'target_info': {
+                'file_path': target_path,
+                'file_name': Path(target_path).name,
+                'extraction_method': target_method,
+                'extraction_column': target_column,
+                'variables_extracted': len(target_items),
+                'dataset_shape': list(target_df.shape)
             },
             'configuration': {
                 'exact_matcher': self.exact_matcher.get_configuration(),
@@ -245,8 +406,156 @@ class CDEMatcherPipeline:
         # Print summary
         print("\n" + "=" * 50)
         print("📊 PIPELINE SUMMARY:")
-        print(f"  - Total source fields: {results['summary']['unique_source_fields']}")
-        print(f"  - Total target items: {results['summary']['unique_target_items']}")
+        print(f"  - Source: {results['source_info']['file_name']} ({source_method}" +
+              (f" → {source_column}" if source_column else "") + ")")
+        print(f"  - Target: {results['target_info']['file_name']} ({target_method} → {target_column})")
+        print(f"  - Source fields extracted: {results['summary']['unique_source_fields']}")
+        print(f"  - Target items extracted: {results['summary']['unique_target_items']}")
+        print(f"  - Exact matches: {results['summary']['total_exact_matches']}")
+        print(f"  - Fuzzy matches: {results['summary']['total_fuzzy_matches']}")
+        print(f"  - Semantic matches: {results['summary']['total_semantic_matches']}")
+        print(f"\n💾 Results saved to: {output_file}")
+
+        self.results = results
+        return results
+
+    def run_pipeline_from_dataframes(self,
+                                    source_df: pd.DataFrame,
+                                    target_df: pd.DataFrame,
+                                    source_name: str = "source_data",
+                                    target_name: str = "target_data",
+                                    output_file: Optional[str] = None,
+                                    source_method: str = "columns",
+                                    source_column: Optional[str] = None,
+                                    target_method: str = "column_values",
+                                    target_column: str = "Item") -> Dict[str, Any]:
+        """
+        Run the complete matching pipeline using DataFrames directly (no file I/O).
+
+        Args:
+            source_df: Source DataFrame containing variable names
+            target_df: Target DataFrame containing CDE items
+            source_name: Descriptive name for source dataset
+            target_name: Descriptive name for target dataset
+            output_file: Output JSON file path (auto-generated if None)
+            source_method: How to extract variables from source ("columns" or "column_values")
+            source_column: Column name for source extraction (if method="column_values")
+            target_method: How to extract variables from target ("columns" or "column_values")
+            target_column: Column name for target extraction (default: "Item")
+
+        Returns:
+            Dictionary containing all match results
+        """
+        print("🚀 Starting CDE Matcher Pipeline (DataFrame Mode)")
+        print("=" * 50)
+
+        # Configure matchers if not already done
+        if not self.exact_matcher:
+            self.configure_matchers()
+
+        # Use DataFrames directly (no file loading)
+        print(f"Source data: {source_df.shape}")
+        print(f"Target data: {target_df.shape}")
+
+        # Extract fields using flexible methods
+        source_fields, target_items = self.extract_fields(
+            source_df, target_df,
+            source_method, source_column,
+            target_method, target_column
+        )
+
+        # Run matching algorithms
+        exact_matches = self.run_exact_matching(source_fields, target_items)
+        fuzzy_matches = self.run_fuzzy_matching(source_fields, target_items)
+        semantic_matches = self.run_semantic_matching(source_fields, target_items)
+
+        # Generate output filename with smart caching
+        if output_file is None:
+            # Generate config hash for intelligent file naming
+            config_hash = generate_config_hash(
+                self.exact_matcher.get_configuration(),
+                self.fuzzy_matcher.get_configuration(),
+                self.semantic_matcher.get_configuration(),
+                source_method,
+                source_column,
+                target_method,
+                target_column
+            )
+
+            method_suffix = source_method if source_method == "columns" else source_column
+            output_file = f"output/{source_name}_{method_suffix}_{config_hash}.json"
+
+        # Ensure output directory exists
+        output_dir = Path(output_file).parent
+        output_dir.mkdir(exist_ok=True)
+
+        # Check if file already exists with same configuration
+        if os.path.exists(output_file):
+            print(f"📋 Found existing results with same configuration: {output_file}")
+            print("🔄 Loading cached results instead of reprocessing...")
+
+            try:
+                with open(output_file, 'r') as f:
+                    cached_results = json.load(f)
+
+                # Verify the cached results have the expected structure
+                if all(key in cached_results for key in ['exact_matches', 'fuzzy_matches', 'semantic_matches', 'summary']):
+                    self.results = cached_results
+                    print("✅ Successfully loaded cached results!")
+                    return cached_results
+                else:
+                    print("⚠️ Cached file format invalid, reprocessing...")
+            except (json.JSONDecodeError, IOError) as e:
+                print(f"⚠️ Error reading cached file, reprocessing: {e}")
+
+        print(f"🆕 Processing new configuration, will save to: {output_file}")
+
+        # Compile results with enhanced metadata
+        results = {
+            'exact_matches': exact_matches,
+            'fuzzy_matches': fuzzy_matches,
+            'semantic_matches': semantic_matches,
+            'summary': {
+                'total_exact_matches': len(exact_matches),
+                'total_fuzzy_matches': len(fuzzy_matches),
+                'total_semantic_matches': len(semantic_matches),
+                'unique_source_fields': len(source_fields),
+                'unique_target_items': len(target_items),
+                'processing_timestamp': datetime.datetime.now().isoformat()
+            },
+            'source_info': {
+                'dataset_name': source_name,
+                'extraction_method': source_method,
+                'extraction_column': source_column,
+                'variables_extracted': len(source_fields),
+                'dataset_shape': list(source_df.shape)
+            },
+            'target_info': {
+                'dataset_name': target_name,
+                'extraction_method': target_method,
+                'extraction_column': target_column,
+                'variables_extracted': len(target_items),
+                'dataset_shape': list(target_df.shape)
+            },
+            'configuration': {
+                'exact_matcher': self.exact_matcher.get_configuration(),
+                'fuzzy_matcher': self.fuzzy_matcher.get_configuration(),
+                'semantic_matcher': self.semantic_matcher.get_configuration()
+            }
+        }
+
+        # Save results
+        with open(output_file, 'w') as f:
+            json.dump(results, f, indent=2)
+
+        # Print summary
+        print("\n" + "=" * 50)
+        print("📊 PIPELINE SUMMARY:")
+        print(f"  - Source: {source_name} ({source_method}" +
+              (f" → {source_column}" if source_column else "") + ")")
+        print(f"  - Target: {target_name} ({target_method} → {target_column})")
+        print(f"  - Source fields extracted: {results['summary']['unique_source_fields']}")
+        print(f"  - Target items extracted: {results['summary']['unique_target_items']}")
         print(f"  - Exact matches: {results['summary']['total_exact_matches']}")
         print(f"  - Fuzzy matches: {results['summary']['total_fuzzy_matches']}")
         print(f"  - Semantic matches: {results['summary']['total_semantic_matches']}")
