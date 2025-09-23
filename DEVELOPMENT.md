@@ -18,13 +18,18 @@ This guide provides strategies for developing the CDE Matcher project, particula
 cde_matcher/
 ├── core/                 # Business logic (no UI dependencies)
 │   ├── matchers/        # Matching algorithms
-│   ├── adapters/        # Data format parsers
-│   └── corpus/          # Corpus management
+│   ├── corpus/          # Corpus management (future)
+│   └── pipeline.py      # Main processing pipeline
 ├── ui/                  # Streamlit interface
+│   ├── components/      # Modular UI components
+│   │   ├── dataset_selector.py
+│   │   ├── matcher_config.py
+│   │   ├── results_viewer.py
+│   │   └── report_builder.py
+│   └── browser_app.py   # Main application
 ├── data/                # Sample data and corpus storage
-├── config/              # Configuration management
-├── tests/               # Unit tests mirroring src structure
-└── prompts/             # Claude Code prompt templates
+├── tests/               # Unit tests (future)
+└── docs/                # Documentation
 ```
 
 ## Phase-Based Development Approach
@@ -62,19 +67,57 @@ values. Include type inference and basic statistics."
 Focus: One format at a time
 ```
 
-### ✅ Phase 5: Streamlit Interface (COMPLETED)
-**Status**: Fully integrated with manual match selection and flexible data handling
-**Implementation**: `cde_browser_app.py`
-- ✅ **File Selection Interface**: Load clinical data from `data/clinical_data/`
-- ✅ **Flexible Data Preview**: Preview file structure and suggest extraction methods
-- ✅ **Dataset Switching**: Change datasets with confirmation dialogs
-- ✅ **Real-time Processing**: Interactive configuration and immediate results
-- ✅ **Manual Match Selection**: Interactive data editor with checkboxes for each match
-- ✅ **Conflict Resolution**: Detect and resolve variables mapped to multiple CDEs
-- ✅ **Report Generation**: 2-column CSV download (CDE, Variable)
-- ✅ **Session State Management**: Persistent selections across navigation
-- ✅ **Multi-view Interface**: Overview, match details, and manual report builder
-- ✅ **Smart Caching**: Configuration-based file management with hash naming
+### ✅ Phase 5: Modular Streamlit Interface (COMPLETED)
+**Status**: Fully refactored with modular components and flexible data handling
+**Implementation**: `ui/browser_app.py` with modular components
+
+#### 🏗️ **Refactor Summary**
+- **Before**: 1,500+ line monolithic `cde_browser_app.py`
+- **After**: Clean 400-line main app + 4 specialized components
+- **Benefits**: Better maintainability, testability, and reusability
+
+#### 🧩 **Component Architecture**
+- ✅ **DatasetSelector** (`ui/components/dataset_selector.py`): File selection, preview, and extraction method configuration
+- ✅ **MatcherConfig** (`ui/components/matcher_config.py`): Interactive algorithm parameter tuning with examples
+- ✅ **ResultsViewer** (`ui/components/results_viewer.py`): Overview dashboard, detailed views, and advanced analytics
+- ✅ **ReportBuilder** (`ui/components/report_builder.py`): Manual curation, conflict resolution, and export functionality
+
+#### ✨ **Enhanced Features**
+- ✅ **Smart File Selection**: No default dataset selection, user must actively choose
+- ✅ **Flexible Data Handling**: Support for column headers and data dictionary formats
+- ✅ **Smart Caching**: Configuration-based file management with hash naming in `data/output/`
+- ✅ **Session State Management**: Persistent selections across navigation with proper confirmation dialogs
+- ✅ **Interactive Selection**: Real-time match selection with bulk operations and conflict resolution
+- ✅ **Advanced Analytics**: Confidence distributions, algorithm comparisons, and coverage analysis
+
+### 📋 **Phase 6: Repository Cleanup and Organization (COMPLETED)**
+**Status**: Comprehensive cleanup and standardization
+**Implementation**: Repository-wide improvements
+
+#### 🧹 **Cleanup Activities**
+- ✅ **File Structure**: Moved `cde_matcher_pipeline.py` → `cde_matcher/core/pipeline.py`
+- ✅ **Removed Unused Code**: Eliminated 466-line unused `ui/components/match_viewer.py`
+- ✅ **Output Organization**: Changed output directory from `output/` → `data/output/`
+- ✅ **Streamlit Deprecations**: Fixed all `use_container_width` → `width='stretch'` warnings
+- ✅ **Git Management**: Added comprehensive `.gitignore` for Python projects
+- ✅ **Documentation**: Updated all docs to reflect new modular structure
+
+#### 📁 **Final File Structure**
+```
+cde_matcher/
+├── core/
+│   ├── matchers/          # Matching algorithms (preserved)
+│   ├── corpus/            # Future corpus management
+│   └── pipeline.py        # Main processing pipeline (moved)
+├── ui/
+│   ├── components/        # Modular UI components (refactored)
+│   └── browser_app.py     # Main application (refactored)
+├── data/
+│   ├── clinical_data/     # Input datasets
+│   ├── cdes/             # Target CDEs
+│   └── output/           # Results (moved from root)
+└── docs/                 # Documentation (updated)
+```
 
 ## Current Implementation Status
 
@@ -96,10 +139,10 @@ results = fuzzy.match("age_death", ["age_at_death", "death_age"])
 ```
 
 #### Pipeline
-The `CDEMatcherPipeline` in `cde_matcher_pipeline.py` provides end-to-end functionality with flexible data handling:
+The `CDEMatcherPipeline` in `cde_matcher/core/pipeline.py` provides end-to-end functionality with flexible data handling:
 
 ```python
-from cde_matcher_pipeline import CDEMatcherPipeline
+from cde_matcher.core.pipeline import CDEMatcherPipeline
 
 pipeline = CDEMatcherPipeline()
 
@@ -149,12 +192,12 @@ Working with SEA-AD Cohort Metadata (66 fields) vs DigiPath CDEs (332 items):
 - `exact_only: bool` - Exact semantic matches only (default: False)
 - `custom_mappings: Dict` - Additional concept mappings (default: None)
 
-#### Streamlit Browser App
-The `cde_browser_app.py` provides a complete development interface:
+#### Modular Streamlit Browser App
+The `ui/browser_app.py` provides a complete modular interface with reusable components:
 
 ```python
 # Launch the application
-streamlit run cde_browser_app.py
+streamlit run ui/browser_app.py
 ```
 
 Features:
@@ -170,11 +213,30 @@ Features:
 
 ### 🎯 Next Development Priorities
 
-1. **Unit Tests** - Comprehensive test suite for all matchers
+1. **Unit Tests** - Comprehensive test suite for modular components
+   - Component-level tests for UI modules
+   - Integration tests for pipeline workflows
+   - Mock data for consistent testing
+
 2. **Corpus Manager** - JSON-based persistence with file locking
-3. **Data Adapters** - Formalized CSV and other format handlers
-4. **Performance** - Optimization for large datasets
-5. **Advanced Analytics** - Match quality insights and recommendations
+   - Historical match storage and retrieval
+   - User feedback incorporation
+   - Cross-session learning capabilities
+
+3. **Enhanced Analytics** - Advanced insights and recommendations
+   - Pattern recognition across datasets
+   - Match quality prediction
+   - Automated confidence thresholds
+
+4. **Performance Optimization** - Scaling improvements
+   - Parallel processing for large datasets
+   - Caching strategies for repeated operations
+   - Memory optimization for big data files
+
+5. **Additional UI Features** - Extended functionality
+   - Batch processing interface
+   - Custom matcher development tools
+   - Advanced export options and reporting
 
 ## Working with Claude Code
 

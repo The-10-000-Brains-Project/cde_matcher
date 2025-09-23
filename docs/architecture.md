@@ -203,8 +203,8 @@ pipeline.configure_matchers(
 
 ## User Interface Layer
 
-### Streamlit Browser Application
-The `cde_browser_app.py` provides a complete web-based interface for CDE matching with flexible data handling:
+### Modular Streamlit Browser Application
+The `ui/browser_app.py` provides a complete web-based interface built with modular components:
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -292,11 +292,47 @@ st.session_state = {
 - **Validation**: Ensure state consistency across navigation
 - **Cleanup**: Reset on new data processing
 
+### Modular UI Components
+
+The user interface is built using four specialized components that can be reused and tested independently:
+
+#### DatasetSelector Component
+**File**: `ui/components/dataset_selector.py`
+**Responsibilities**:
+- File selection from `data/clinical_data/`
+- Dataset preview with structure analysis
+- Extraction method configuration (columns vs column_values)
+- Method validation and error handling
+
+#### MatcherConfig Component
+**File**: `ui/components/matcher_config.py`
+**Responsibilities**:
+- Interactive algorithm parameter tuning
+- Real-time examples and explanations
+- Configuration validation and defaults
+- Help documentation for each algorithm
+
+#### ResultsViewer Component
+**File**: `ui/components/results_viewer.py`
+**Responsibilities**:
+- Overview dashboard with metrics and visualizations
+- Detailed match views with filtering and search
+- Interactive match selection with bulk operations
+- Advanced analytics and algorithm comparisons
+
+#### ReportBuilder Component
+**File**: `ui/components/report_builder.py`
+**Responsibilities**:
+- Manual match curation and selection management
+- Conflict detection and resolution interface
+- Export functionality with multiple formats
+- Final report validation and download
+
 ### Integration with Pipeline
 
-#### Data Flow
+#### Component-Based Data Flow
 ```
-Clinical Data Files → Dataset Preview → Method Selection → Streamlit Interface → CDEMatcherPipeline → Smart Cache Check → Results → Interactive Selection → Manual Report
+Clinical Data Files → DatasetSelector → MatcherConfig → CDEMatcherPipeline → Smart Cache Check → ResultsViewer → ReportBuilder → Manual Report Export
 ```
 
 #### Configuration Bridging
