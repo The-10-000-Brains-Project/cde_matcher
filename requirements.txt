@@ -1,0 +1,26 @@
+# Core data processing
+pandas>=2.0.0
+
+# User interface
+streamlit>=1.28.0
+
+# String matching algorithms
+rapidfuzz>=3.0.0
+
+# Data validation and serialization
+pydantic>=2.0.0
+
+# Testing framework
+pytest>=7.0.0
+
+# File locking for concurrent access
+filelock>=3.0.0
+
+# Data visualization
+plotly
+
+# Network analysis (if needed for future features)
+networkx
+
+# Additional dependencies for development
+typing-extensions>=4.0.0
