@@ -18,6 +18,7 @@ from dataclasses import asdict
 from cde_matcher.core.matchers import (
     create_matcher, create_ensemble, MatchResult
 )
+from cde_matcher.core.data_adapter import get_data_adapter, get_data_paths
 
 
 def extract_variables_flexible(df: pd.DataFrame,
@@ -106,6 +107,8 @@ class CDEMatcherPipeline:
         self.fuzzy_matcher = None
         self.semantic_matcher = None
         self.results = {}
+        self.data_adapter = get_data_adapter()
+        self.data_paths = get_data_paths()
 
     def configure_matchers(self,
                           exact_config: Dict[str, Any] = None,
@@ -140,8 +143,8 @@ class CDEMatcherPipeline:
         Returns:
             Tuple of (source_df, target_df)
         """
-        source_df = pd.read_csv(source_path)
-        target_df = pd.read_csv(target_path)
+        source_df = self.data_adapter.read_csv(source_path)
+        target_df = self.data_adapter.read_csv(target_path)
 
         print(f"Loaded source data: {source_df.shape}")
         print(f"Loaded target data: {target_df.shape}")
@@ -277,8 +280,8 @@ class CDEMatcherPipeline:
         return all_matches
 
     def run_pipeline(self,
-                    source_path: str = "data/clinical_data/SEA-AD_Cohort_Metadata.csv",
-                    target_path: str = "data/cdes/digipath_cdes.csv",
+                    source_path: Optional[str] = None,
+                    target_path: Optional[str] = None,
                     output_file: Optional[str] = None,
                     source_method: str = "columns",
                     source_column: Optional[str] = None,
@@ -301,6 +304,18 @@ class CDEMatcherPipeline:
         """
         print("🚀 Starting CDE Matcher Pipeline")
         print("=" * 50)
+
+        # Use default paths if not provided
+        if source_path is None:
+            source_path = self.data_adapter.get_full_path(
+                self.data_paths['clinical_data'],
+                'SEA-AD_Cohort_Metadata.csv'
+            )
+        if target_path is None:
+            target_path = self.data_adapter.get_full_path(
+                self.data_paths['cdes'],
+                'digipath_cdes.csv'
+            )
 
         # Configure matchers if not already done
         if not self.exact_matcher:
@@ -336,20 +351,18 @@ class CDEMatcherPipeline:
 
             source_name = Path(source_path).stem
             method_suffix = source_method if source_method == "columns" else source_column
-            output_file = f"data/output/{source_name}_{method_suffix}_{config_hash}.json"
-
-        # Ensure output directory exists
-        output_dir = Path(output_file).parent
-        output_dir.mkdir(exist_ok=True)
+            output_file = self.data_adapter.get_full_path(
+                self.data_paths['output'],
+                f"{source_name}_{method_suffix}_{config_hash}.json"
+            )
 
         # Check if file already exists with same configuration
-        if os.path.exists(output_file):
+        if self.data_adapter.file_exists(output_file):
             print(f"📋 Found existing results with same configuration: {output_file}")
             print("🔄 Loading cached results instead of reprocessing...")
 
             try:
-                with open(output_file, 'r') as f:
-                    cached_results = json.load(f)
+                cached_results = self.data_adapter.read_json(output_file)
 
                 # Verify the cached results have the expected structure
                 if all(key in cached_results for key in ['exact_matches', 'fuzzy_matches', 'semantic_matches', 'summary']):
@@ -358,7 +371,7 @@ class CDEMatcherPipeline:
                     return cached_results
                 else:
                     print("⚠️ Cached file format invalid, reprocessing...")
-            except (json.JSONDecodeError, IOError) as e:
+            except Exception as e:
                 print(f"⚠️ Error reading cached file, reprocessing: {e}")
 
         print(f"🆕 Processing new configuration, will save to: {output_file}")
@@ -400,8 +413,7 @@ class CDEMatcherPipeline:
         }
 
         # Save results
-        with open(output_file, 'w') as f:
-            json.dump(results, f, indent=2)
+        self.data_adapter.write_json(output_file, results)
 
         # Print summary
         print("\n" + "=" * 50)
@@ -483,20 +495,18 @@ class CDEMatcherPipeline:
             )
 
             method_suffix = source_method if source_method == "columns" else source_column
-            output_file = f"data/output/{source_name}_{method_suffix}_{config_hash}.json"
-
-        # Ensure output directory exists
-        output_dir = Path(output_file).parent
-        output_dir.mkdir(exist_ok=True)
+            output_file = self.data_adapter.get_full_path(
+                self.data_paths['output'],
+                f"{source_name}_{method_suffix}_{config_hash}.json"
+            )
 
         # Check if file already exists with same configuration
-        if os.path.exists(output_file):
+        if self.data_adapter.file_exists(output_file):
             print(f"📋 Found existing results with same configuration: {output_file}")
             print("🔄 Loading cached results instead of reprocessing...")
 
             try:
-                with open(output_file, 'r') as f:
-                    cached_results = json.load(f)
+                cached_results = self.data_adapter.read_json(output_file)
 
                 # Verify the cached results have the expected structure
                 if all(key in cached_results for key in ['exact_matches', 'fuzzy_matches', 'semantic_matches', 'summary']):
@@ -505,7 +515,7 @@ class CDEMatcherPipeline:
                     return cached_results
                 else:
                     print("⚠️ Cached file format invalid, reprocessing...")
-            except (json.JSONDecodeError, IOError) as e:
+            except Exception as e:
                 print(f"⚠️ Error reading cached file, reprocessing: {e}")
 
         print(f"🆕 Processing new configuration, will save to: {output_file}")
@@ -545,8 +555,7 @@ class CDEMatcherPipeline:
         }
 
         # Save results
-        with open(output_file, 'w') as f:
-            json.dump(results, f, indent=2)
+        self.data_adapter.write_json(output_file, results)
 
         # Print summary
         print("\n" + "=" * 50)

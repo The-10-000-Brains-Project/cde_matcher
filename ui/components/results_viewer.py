@@ -106,7 +106,7 @@ class ResultsViewer:
             }
         )
         fig.update_layout(showlegend=False, height=400)
-        st.plotly_chart(fig, width='stretch')
+        st.plotly_chart(fig, use_container_width=True)
 
     @staticmethod
     def _render_confidence_distribution_chart(results: Dict[str, Any]):
@@ -134,7 +134,7 @@ class ResultsViewer:
             )
 
             fig.update_layout(height=400)
-            st.plotly_chart(fig, width='stretch')
+            st.plotly_chart(fig, use_container_width=True)
         else:
             st.info("No fuzzy matches to display confidence distribution")
 
@@ -444,7 +444,7 @@ class ResultsViewer:
             height=400
         )
 
-        st.plotly_chart(fig, width='stretch')
+        st.plotly_chart(fig, use_container_width=True)
 
     @staticmethod
     def _render_quality_analysis(results: Dict[str, Any]):
@@ -466,7 +466,7 @@ class ResultsViewer:
                     names=list(ranges.keys()),
                     title="Fuzzy Match Quality Distribution"
                 )
-                st.plotly_chart(fig, width='stretch')
+                st.plotly_chart(fig, use_container_width=True)
             else:
                 st.info("No fuzzy matches for quality analysis")
 
@@ -484,7 +484,7 @@ class ResultsViewer:
                 names=list(match_counts.keys()),
                 title="Match Type Distribution"
             )
-            st.plotly_chart(fig, width='stretch')
+            st.plotly_chart(fig, use_container_width=True)
 
     @staticmethod
     def _render_coverage_analysis(results: Dict[str, Any]):
@@ -512,4 +512,4 @@ class ResultsViewer:
             color_discrete_map={'Matched': '#28a745', 'Unmatched': '#dc3545'}
         )
 
-        st.plotly_chart(fig, width='stretch')
+        st.plotly_chart(fig, use_container_width=True)

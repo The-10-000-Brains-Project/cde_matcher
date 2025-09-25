@@ -18,12 +18,14 @@ import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from cde_matcher.core.pipeline import CDEMatcherPipeline
+from cde_matcher.core.data_adapter import get_data_adapter, get_data_paths
 from ui.components import (
     DatasetSelector,
     MatcherConfig,
     ResultsViewer,
     ReportBuilder
 )
+from ui.auth import check_password, logout
 
 # Configure Streamlit page
 st.set_page_config(
@@ -77,6 +79,8 @@ class CDEBrowserApp:
     """Main CDE Browser Application."""
 
     def __init__(self):
+        self.data_adapter = get_data_adapter()
+        self.data_paths = get_data_paths()
         self.pipeline = CDEMatcherPipeline()
         self.dataset_selector = DatasetSelector()
         self.matcher_config = MatcherConfig()
@@ -106,18 +110,13 @@ class CDEBrowserApp:
 
     def get_cached_outputs(self) -> List[str]:
         """Get list of cached output JSON files."""
-        output_dir = "data/output"
-        if not os.path.exists(output_dir):
-            return []
-        json_files = glob.glob(os.path.join(output_dir, "*.json"))
-        return [os.path.basename(f) for f in json_files]
+        return self.data_adapter.list_files(self.data_paths['output'], "*.json")
 
     def load_cached_output(self, filename: str) -> tuple:
         """Load a cached output JSON file."""
         try:
-            file_path = os.path.join("data/output", filename)
-            with open(file_path, 'r') as f:
-                data = json.load(f)
+            file_path = self.data_adapter.get_full_path(self.data_paths['output'], filename)
+            data = self.data_adapter.read_json(file_path)
             return data, None
         except Exception as e:
             return None, str(e)
@@ -148,7 +147,8 @@ class CDEBrowserApp:
 
         cached_files = self.get_cached_outputs()
         if not cached_files:
-            st.error("No cached results found in `data/output/` directory.")
+            output_path_display = self.data_paths['output']
+            st.error(f"No cached results found in `{output_path_display}` directory.")
             return "📊 Select Data"
 
         selected_file = st.selectbox(
@@ -239,7 +239,11 @@ class CDEBrowserApp:
 
         # Load DigiPath CDEs
         try:
-            target_df = pd.read_csv("data/cdes/digipath_cdes.csv")
+            cde_path = self.data_adapter.get_full_path(
+                self.data_paths['cdes'],
+                'digipath_cdes.csv'
+            )
+            target_df = self.data_adapter.read_csv(cde_path)
             st.success(f"✅ Loaded DigiPath CDEs: {len(target_df)} items")
         except Exception as e:
             st.error(f"❌ Error loading DigiPath CDEs: {e}")
@@ -328,6 +332,10 @@ class CDEBrowserApp:
 
     def run(self):
         """Run the main application."""
+        # Check authentication first
+        if not check_password():
+            return
+
         # Render sidebar and get current page
         current_page = self.render_sidebar()
 

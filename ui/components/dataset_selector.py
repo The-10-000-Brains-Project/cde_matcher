@@ -7,32 +7,31 @@ Handles dataset selection, preview, and extraction method configuration.
 import streamlit as st
 import pandas as pd
 import os
-import glob
+import sys
 from typing import Dict, List, Any, Optional, Tuple
+
+# Add path for imports
+sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+from cde_matcher.core.data_adapter import get_data_adapter, get_data_paths
 
 
 class DatasetSelector:
     """Component for selecting and configuring datasets."""
 
     def __init__(self):
-        self.clinical_data_dir = "data/clinical_data"
+        self.data_adapter = get_data_adapter()
+        self.data_paths = get_data_paths()
+        self.clinical_data_dir = self.data_paths['clinical_data']
 
     def get_clinical_data_files(self) -> List[str]:
         """Get list of available clinical data files."""
-        if not os.path.exists(self.clinical_data_dir):
-            return []
-
-        # Get all CSV files in the clinical data directory
-        csv_files = glob.glob(os.path.join(self.clinical_data_dir, "*.csv"))
-
-        # Return just the filenames (not full paths) for display
-        return [os.path.basename(f) for f in csv_files]
+        return self.data_adapter.list_files(self.clinical_data_dir, "*.csv")
 
     def load_clinical_data_file(self, filename: str) -> Tuple[Optional[pd.DataFrame], Optional[str]]:
         """Load a specific clinical data file."""
         try:
-            file_path = os.path.join(self.clinical_data_dir, filename)
-            df = pd.read_csv(file_path)
+            file_path = self.data_adapter.get_full_path(self.clinical_data_dir, filename)
+            df = self.data_adapter.read_csv(file_path)
             return df, None
         except Exception as e:
             return None, str(e)
@@ -90,8 +89,9 @@ class DatasetSelector:
 
         files = self.get_clinical_data_files()
         if not files:
-            st.error("No CSV files found in `data/clinical_data/` directory.")
-            st.info("Please add your clinical data CSV files to the `data/clinical_data/` directory.")
+            data_path_display = self.clinical_data_dir
+            st.error(f"No CSV files found in `{data_path_display}` directory.")
+            st.info(f"Please add your clinical data CSV files to the `{data_path_display}` directory.")
             return None
 
         selected_file = st.selectbox(

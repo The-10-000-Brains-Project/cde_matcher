@@ -1,0 +1,6 @@
+runtime: python313
+env: flex
+
+env_variables:
+  CDE_LOCAL_MODE: "false"
+  CDE_GCS_BUCKET: "pathnd_cdes"
