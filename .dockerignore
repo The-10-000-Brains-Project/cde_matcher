@@ -1,0 +1,89 @@
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Virtual environments
+.venv/
+venv/
+.env/
+env/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Local data (don't include in container)
+data/
+*.csv
+*.json
+
+# Documentation and development files
+docs/
+tests/
+*.md
+README*
+CHANGELOG*
+DEVELOPMENT*
+ROADMAP*
+LICENSE*
+.gcloudignore
+
+# IDE and editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Testing
+pytest.ini
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# Logs and temporary files
+*.log
+*.tmp
+*.temp
+logs/
+
+# Docker
+Dockerfile*
+.dockerignore
+docker-compose*
+
+# Cloud deployment configs (keep them but not needed in container)
+app.yaml
+
+# Environment files
+.env
+.env.*

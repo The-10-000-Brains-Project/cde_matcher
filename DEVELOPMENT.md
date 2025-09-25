@@ -18,7 +18,7 @@ This guide provides strategies for developing the CDE Matcher project, particula
 cde_matcher/
 ├── core/                 # Business logic (no UI dependencies)
 │   ├── matchers/        # Matching algorithms
-│   ├── corpus/          # Corpus management (future)
+│   ├── data_adapter.py  # GCS/local file access abstraction
 │   └── pipeline.py      # Main processing pipeline
 ├── ui/                  # Streamlit interface
 │   ├── components/      # Modular UI components
@@ -26,69 +26,62 @@ cde_matcher/
 │   │   ├── matcher_config.py
 │   │   ├── results_viewer.py
 │   │   └── report_builder.py
+│   ├── auth.py          # Authentication system
 │   └── browser_app.py   # Main application
-├── data/                # Sample data and corpus storage
+├── scripts/             # Deployment scripts
+│   ├── deploy.sh        # Cloud Run deployment
+│   └── local-dev.sh     # Local Docker development
+├── data/                # Sample data (local mode only)
 ├── tests/               # Unit tests (future)
 └── docs/                # Documentation
 ```
 
 ## Phase-Based Development Approach
 
-### ✅ Phase 1: Core Infrastructure (COMPLETED)
+### Phase 1: Core Infrastructure (COMPLETED)
 **Implementation**: `cde_matcher/core/matchers/base.py`
-- ✅ BaseMatcher abstract interface with type hints
-- ✅ MatchResult dataclass with validation
-- ✅ Custom exceptions (MatcherError, ConfigurationError, MatchingError)
-- ✅ Input validation and result sorting utilities
+- BaseMatcher abstract interface with type hints
+- MatchResult dataclass with validation
+- Custom exceptions (MatcherError, ConfigurationError, MatchingError)
+- Input validation and result sorting utilities
 
-### ✅ Phase 2: Matching Algorithms (COMPLETED)
+### Phase 2: Matching Algorithms (COMPLETED)
 **Implementations**:
-- ✅ **ExactMatcher** (`cde_matcher/core/matchers/exact.py`) - Case-sensitive/insensitive exact matching
-- ✅ **FuzzyMatcher** (`cde_matcher/core/matchers/fuzzy.py`) - Using rapidfuzz with multiple algorithms
-- ✅ **SemanticMatcher** (`cde_matcher/core/matchers/semantic.py`) - Domain knowledge mappings
-- ✅ **MatcherFactory** (`cde_matcher/core/matchers/factory.py`) - Dynamic matcher creation and ensemble support
+- **ExactMatcher** (`cde_matcher/core/matchers/exact.py`) - Case-sensitive/insensitive exact matching
+- **FuzzyMatcher** (`cde_matcher/core/matchers/fuzzy.py`) - Using rapidfuzz with multiple algorithms
+- **SemanticMatcher** (`cde_matcher/core/matchers/semantic.py`) - Domain knowledge mappings
+- **MatcherFactory** (`cde_matcher/core/matchers/factory.py`) - Dynamic matcher creation and ensemble support
 
-### 🚧 Phase 3: Corpus Management (NEXT)
-**Status**: Not yet implemented
-```markdown
-Prompt: "Create a JSON-based corpus manager with file locking for concurrent
-access. Include methods to add matches, query history, and track unmatched
-variables. Implement automatic backups."
+### Phase 3: Data Abstraction (COMPLETED)
+**Status**: GCS and local file access abstraction implemented
+**Implementation**: `cde_matcher/core/data_adapter.py`
+- Transparent file operations across local filesystem and GCS buckets
+- Environment-based path configuration with intelligent defaults
+- Support for both development (local) and production (cloud) workflows
+- Automatic authentication handling for GCS access
 
-Focus: Reliable persistence
-```
-
-### 🚧 Phase 4: Data Adapters (FUTURE)
-**Status**: Basic CSV handling in pipeline, needs formalization
-```markdown
-Prompt: "Build adapter for raw CSV files. Extract column headers and sample
-values. Include type inference and basic statistics."
-
-Focus: One format at a time
-```
-
-### ✅ Phase 5: Modular Streamlit Interface (COMPLETED)
+### Phase 4: Modular Streamlit Interface (COMPLETED)
 **Status**: Fully refactored with modular components and flexible data handling
 **Implementation**: `ui/browser_app.py` with modular components
 
-#### 🏗️ **Refactor Summary**
+#### Refactor Summary
 - **Before**: 1,500+ line monolithic `cde_browser_app.py`
 - **After**: Clean 400-line main app + 4 specialized components
 - **Benefits**: Better maintainability, testability, and reusability
 
-#### 🧩 **Component Architecture**
-- ✅ **DatasetSelector** (`ui/components/dataset_selector.py`): File selection, preview, and extraction method configuration
-- ✅ **MatcherConfig** (`ui/components/matcher_config.py`): Interactive algorithm parameter tuning with examples
-- ✅ **ResultsViewer** (`ui/components/results_viewer.py`): Overview dashboard, detailed views, and advanced analytics
-- ✅ **ReportBuilder** (`ui/components/report_builder.py`): Manual curation, conflict resolution, and export functionality
+#### Component Architecture
+- **DatasetSelector** (`ui/components/dataset_selector.py`): File selection, preview, and extraction method configuration
+- **MatcherConfig** (`ui/components/matcher_config.py`): Interactive algorithm parameter tuning with examples
+- **ResultsViewer** (`ui/components/results_viewer.py`): Overview dashboard, detailed views, and advanced analytics
+- **ReportBuilder** (`ui/components/report_builder.py`): Manual curation, conflict resolution, and export functionality
 
-#### ✨ **Enhanced Features**
-- ✅ **Smart File Selection**: No default dataset selection, user must actively choose
-- ✅ **Flexible Data Handling**: Support for column headers and data dictionary formats
-- ✅ **Smart Caching**: Configuration-based file management with hash naming in `data/output/`
-- ✅ **Session State Management**: Persistent selections across navigation with proper confirmation dialogs
-- ✅ **Interactive Selection**: Real-time match selection with bulk operations and conflict resolution
-- ✅ **Advanced Analytics**: Confidence distributions, algorithm comparisons, and coverage analysis
+#### Enhanced Features
+- **Smart File Selection**: No default dataset selection, user must actively choose
+- **Flexible Data Handling**: Support for column headers and data dictionary formats
+- **Smart Caching**: Configuration-based file management with hash naming in `data/output/`
+- **Session State Management**: Persistent selections across navigation with proper confirmation dialogs
+- **Interactive Selection**: Real-time match selection with bulk operations and conflict resolution
+- **Advanced Analytics**: Confidence distributions, algorithm comparisons, and coverage analysis
 
 ### 📋 **Phase 6: Repository Cleanup and Organization (COMPLETED)**
 **Status**: Comprehensive cleanup and standardization
@@ -118,6 +111,36 @@ cde_matcher/
 │   └── output/           # Results (moved from root)
 └── docs/                 # Documentation (updated)
 ```
+
+### Phase 7: Cloud Deployment and Data Abstraction (COMPLETED)
+**Status**: Full cloud deployment support with GCS integration
+**Implementation**: Docker + Cloud Run deployment with local fallback
+
+#### Cloud Infrastructure
+- **DataAdapter** (`cde_matcher/core/data_adapter.py`): Transparent GCS/local file access
+- **Docker support**: Production-ready containerization with Artifact Registry
+- **Cloud Run deployment**: Automated deployment scripts with europe-west4 region
+- **App Engine support**: Alternative deployment option with flexible environment
+- **Environment-based configuration**: Automatic local/cloud mode detection
+
+#### Authentication System
+- **Password protection** (`ui/auth.py`): Optional SHA256-based authentication
+- **Session management**: Persistent login state across navigation
+- **Environment-based**: Password hash stored in environment variables
+- **Security**: No passwords stored in code or version control
+
+#### Deployment Features
+- **Artifact Registry**: Modern container registry (GCR deprecated)
+- **Smart defaults**: Sensible environment variable defaults
+- **Multi-region support**: Configurable deployment regions
+- **Cost optimization**: Auto-scaling and resource limits
+- **Configuration-based caching**: Shared result storage across users
+
+#### Development Tools
+- **Local development scripts**: `scripts/local-dev.sh` for Docker development
+- **Deployment automation**: `scripts/deploy.sh` for Cloud Run deployment
+- **Docker optimization**: Simplified Dockerfile without unnecessary complexity
+- **Documentation updates**: Comprehensive deployment and authentication guides
 
 ## Current Implementation Status
 

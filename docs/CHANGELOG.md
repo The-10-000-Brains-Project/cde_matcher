@@ -3,6 +3,46 @@
 ## [Unreleased]
 - Working on: Unit tests and corpus management
 
+## [0.6.0] - 2024-09-25
+### Cloud Deployment and Authentication
+- **NEW**: Complete Docker deployment support with Cloud Run and App Engine options
+- **NEW**: Optional password authentication system with SHA256 hashing
+- **NEW**: GCS bucket integration with transparent local/cloud data access
+- **NEW**: Deployment automation scripts for Cloud Run (europe-west4)
+- **NEW**: Data abstraction layer supporting both local files and GCS buckets
+
+### Added
+- **Authentication System**: Optional password protection for deployed applications
+  - SHA256-based password hashing for security
+  - Environment variable configuration (no secrets in code)
+  - Session-based authentication with persistent login
+  - Integration with main application flow
+- **Cloud Infrastructure**: Production-ready deployment capabilities
+  - Docker containerization with multi-stage builds and security optimizations
+  - Cloud Run deployment with Artifact Registry integration
+  - App Engine Flexible environment support
+  - Automated deployment scripts with region configuration
+- **Data Abstraction**: Seamless local/cloud data access
+  - GCS bucket integration for production data storage
+  - Environment-based path configuration with intelligent defaults
+  - Transparent file operations across local filesystem and cloud storage
+  - Automatic authentication handling for GCS access
+- **Development Tools**: Enhanced development and deployment workflow
+  - Local Docker development scripts with both local and cloud modes
+  - Simplified Dockerfile without unnecessary complexity
+  - Cloud deployment automation with europe-west4 region support
+  - Comprehensive deployment documentation
+
+### Changed
+- **Default Port**: Changed from 8501 to 8080 for Cloud Run compatibility
+- **Dependencies**: Added google-cloud-storage for GCS integration
+- **Configuration**: Environment-based defaults for deployment flexibility
+- **Documentation**: Updated with comprehensive deployment and authentication guides
+
+### Fixed
+- **Plotly Warnings**: Updated deprecated `width='stretch'` to `use_container_width=True`
+- **Path Resolution**: Fixed hardcoded paths in UI components for cloud compatibility
+
 ## [0.5.0] - 2024-09-23
 ### Major Refactor: Modular Component Architecture
 - **BREAKING**: Complete UI refactor from monolithic to modular design
