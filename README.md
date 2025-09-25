@@ -142,14 +142,6 @@ gcloud run deploy cde-matcher \
   --set-env-vars CDE_PASSWORD_HASH="a1b2c3d4e5f6..."
 ```
 
-**App Engine (app.yaml):**
-```yaml
-env_variables:
-  CDE_LOCAL_MODE: "false"
-  CDE_GCS_BUCKET: "pathnd_cdes"
-  CDE_PASSWORD_HASH: "a1b2c3d4e5f6..."
-```
-
 #### 3. Security Notes
 - **Never commit password hashes to version control**
 - Use Google Secret Manager for production deployments

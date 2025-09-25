@@ -10,4 +10,4 @@ gcloud run deploy cde-matcher \
   --platform=managed \
   --region=europe-west4 \
   --allow-unauthenticated \
-  --set-env-vars CDE_PASSWORD_HASH=<HASH>
+  --set-env-vars CDE_PASSWORD_HASH=<hash>
