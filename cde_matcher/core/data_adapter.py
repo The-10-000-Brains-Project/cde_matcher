@@ -11,6 +11,8 @@ from typing import Optional, List, Union
 import tempfile
 import glob
 
+from .config import config
+
 
 class DataAdapter:
     """Adapter for accessing data from local files or GCS buckets."""
@@ -215,20 +217,8 @@ class DataAdapter:
 
 
 def get_data_paths():
-    """Get configured data paths from environment or use defaults."""
-    if os.getenv('CDE_LOCAL_MODE', 'false').lower() == 'true':
-        return {
-            'clinical_data': 'data/clinical_data',
-            'cdes': 'data/cdes',
-            'output': 'data/output'
-        }
-    else:
-        bucket = os.getenv('CDE_GCS_BUCKET', 'pathnd_cdes')
-        return {
-            'clinical_data': f'gs://{bucket}/clinical_data',
-            'cdes': f'gs://{bucket}/cdes',
-            'output': f'gs://{bucket}/output'
-        }
+    """Get configured data paths from centralized configuration."""
+    return config.data_paths
 
 
 # Global data adapter instance
@@ -238,6 +228,5 @@ def get_data_adapter():
     """Get global data adapter instance."""
     global _data_adapter
     if _data_adapter is None:
-        project_id = os.getenv('CDE_GCS_PROJECT')
-        _data_adapter = DataAdapter(project_id)
+        _data_adapter = DataAdapter(config.gcs_project)
     return _data_adapter

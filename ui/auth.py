@@ -4,7 +4,12 @@ Simple password authentication for CDE Matcher.
 
 import streamlit as st
 import os
+import sys
 import hashlib
+
+# Add path for imports
+sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+from cde_matcher.core.config import config
 
 
 def hash_password(password: str) -> str:
@@ -17,11 +22,8 @@ def check_password() -> bool:
     Returns True if password is correct, False otherwise.
     Shows login form if not authenticated.
     """
-    # Get password from environment (set this in deployment)
-    correct_password_hash = os.getenv('CDE_PASSWORD_HASH')
-
-    # If no password set, skip authentication
-    if not correct_password_hash:
+    # If no password hash configured, skip authentication
+    if not config.is_authenticated:
         return True
 
     # Check if already authenticated
@@ -37,12 +39,12 @@ def check_password() -> bool:
         submit = st.form_submit_button("Login")
 
         if submit:
-            if hash_password(password) == correct_password_hash:
+            if hash_password(password) == config.password_hash:
                 st.session_state.authenticated = True
-                st.success("✅ Authentication successful!")
+                st.success("Authentication successful!")
                 st.rerun()
             else:
-                st.error("❌ Incorrect password")
+                st.error("Incorrect password")
 
     st.markdown("---")
     st.info("💡 Contact administrator for access")
